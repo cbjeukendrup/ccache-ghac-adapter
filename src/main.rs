@@ -6,17 +6,32 @@ use axum::{
     response::IntoResponse,
     routing::{get, head},
 };
+use clap::Parser;
 
 mod ghac;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(Parser)]
+#[command(name = "ccache-ghac-adapter")]
+#[command(version = VERSION)]
+#[command(about = "ccache adapter for GitHub Actions Cache", long_about = None)]
+struct Cli {
+    /// Port to listen on
+    #[arg(short, long, default_value_t = 3459)]
+    port: u16,
+
+    /// Namespace for the cache
+    #[arg(short, long)]
+    namespace: Option<String>,
+}
+
 #[tokio::main]
 async fn main() {
-    let namespace = std::env::var("CCACHE_GHAC_NAMESPACE").unwrap_or_default();
-    let operator = ghac::build_ghac_operator(&namespace).unwrap();
+    let cli = Cli::parse();
 
-    operator.check().await.unwrap();
+    let namespace = cli.namespace.unwrap_or_default();
+    let operator = ghac::build_ghac_operator(&namespace).unwrap();
 
     let app = Router::new()
         .route("/", get(root))
@@ -29,9 +44,8 @@ async fn main() {
         )
         .with_state(operator);
 
-    let listener = tokio::net::TcpListener::bind("localhost:3459")
-        .await
-        .unwrap();
+    let addr = format!("localhost:{}", cli.port);
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 

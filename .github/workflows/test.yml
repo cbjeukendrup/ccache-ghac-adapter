@@ -14,23 +14,60 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
+    env:
+      CARGO_TERM_COLOR: always
+      CCACHE_GHAC_ADAPTER_PORT: 3459
+
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install ccache and ninja
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build ccache-ghac-adapter
+        run: |
+          cargo build --release
+
+      - name: Prepare environment for ccache-ghac-adapter
+        uses: actions/github-script@v8
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Start ccache-ghac-adapter
+        uses: JarvusInnovations/background-action@v1
+        env:
+          CCACHE_GHAC_NAMESPACE: ${{ runner.os }}-${{ runner.arch }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          run: cargo run --release -- --port $CCACHE_GHAC_ADAPTER_PORT --namespace $CCACHE_GHAC_NAMESPACE &
+          wait-on: http://localhost:${{ env.CCACHE_GHAC_ADAPTER_PORT }}
+          wait-for: 10s
+
+      - name: Install ccache
         run: |
           echo "Installing ccache..."
           if [[ "$RUNNER_OS" == "Linux" ]]; then
             sudo apt-get update
-            sudo apt-get install -y ccache ninja-build
+            sudo apt-get install -y ccache
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            brew install ccache ninja
+            brew install ccache
           elif [[ "$RUNNER_OS" == "Windows" ]]; then
-            choco install ccache ninja
+            choco install ccache
           fi
-      
+
       - name: Configure ccache
         run: |
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache" | tee -a $GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" | tee -a $GITHUB_ENV
+
           export CCACHE_DIR=$GITHUB_WORKSPACE/.ccache
           mkdir -p $CCACHE_DIR
 
@@ -39,6 +76,8 @@ jobs:
           echo "compression = true" >>$CCACHE_DIR/ccache.conf
           echo "compression_level = 5" >>$CCACHE_DIR/ccache.conf
           echo "sloppiness=pch_defines,time_macros" >>$CCACHE_DIR/ccache.conf
+          echo "remote_only = true" >>$CCACHE_DIR/ccache.conf
+          echo "remote_storage = http://localhost:$CCACHE_GHAC_ADAPTER_PORT" >>$CCACHE_DIR/ccache.conf
           cat $CCACHE_DIR/ccache.conf
 
           ccache -sv
@@ -49,7 +88,7 @@ jobs:
           cd test/data
           mkdir build
           cd build
-          cmake .. -GNinja -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DVALUE=$GITHUB_RUN_ID
+          cmake .. -GNinja -DVALUE=$GITHUB_RUN_ID
           cmake --build .
 
       - name: Show ccache stats
@@ -62,7 +101,7 @@ jobs:
           rm -rf build
           mkdir build
           cd build
-          cmake .. -GNinja -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DVALUE=$GITHUB_RUN_ID
+          cmake .. -GNinja -DVALUE=$GITHUB_RUN_ID
           cmake --build .
 
       - name: Show ccache stats after second build
