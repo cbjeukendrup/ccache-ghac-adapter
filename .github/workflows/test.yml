@@ -13,12 +13,20 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
+      matrix: &the_matrix
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact-suffix: linux-x86_64
+            executable-extension: ""
+          - os: macOS-latest
+            artifact-suffix: macos-aarch64
+            executable-extension: ""
+          - os: windows-latest
+            artifact-suffix: windows-x86_64
+            executable-extension: ".exe"
     env:
       CARGO_TERM_COLOR: always
-      CCACHE_GHAC_ADAPTER_PORT: 3459
 
     steps:
       - uses: actions/checkout@v6
@@ -36,6 +44,32 @@ jobs:
         run: |
           cargo build --release
 
+      - name: Upload ccache-ghac-adapter artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ccache-ghac-adapter-${{ matrix.artifact-suffix }}
+          path: target/release/ccache-ghac-adapter${{ matrix.executable-extension }}
+
+  test:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix: *the_matrix
+
+    env:
+      CCACHE_GHAC_ADAPTER_PORT: 3459
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download ccache-ghac-adapter artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: ccache-ghac-adapter-${{ matrix.artifact-suffix }}
+      - run: |
+          chmod +x ./ccache-ghac-adapter${{ matrix.executable-extension }}
+          ./ccache-ghac-adapter${{ matrix.executable-extension }} --version
+
       - name: Prepare environment for ccache-ghac-adapter
         uses: actions/github-script@v8
         with:
@@ -49,7 +83,10 @@ jobs:
           CCACHE_GHAC_NAMESPACE: ccache-${{ runner.os }}-${{ runner.arch }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          run: cargo run --release -- --port $CCACHE_GHAC_ADAPTER_PORT --namespace $CCACHE_GHAC_NAMESPACE &
+          run: |
+            ./ccache-ghac-adapter${{ matrix.executable-extension }} \
+            --port $CCACHE_GHAC_ADAPTER_PORT \
+            --namespace $CCACHE_GHAC_NAMESPACE &
           wait-on: http://localhost:${{ env.CCACHE_GHAC_ADAPTER_PORT }}
           wait-for: 10s
 
