@@ -14,10 +14,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix: &the_matrix
-        os: [ubuntu-latest, macOS-latest, windows-latest]
+        os: [ubuntu-22.04, ubuntu-22.04-arm, macOS-latest, windows-latest]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             artifact-suffix: linux-x86_64
+            executable-extension: ""
+          - os: ubuntu-22.04-arm
+            artifact-suffix: linux-aarch64
             executable-extension: ""
           - os: macOS-latest
             artifact-suffix: macos-aarch64
