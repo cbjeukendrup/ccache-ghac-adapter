@@ -10,13 +10,9 @@ use reqwest::ClientBuilder;
 use crate::VERSION;
 
 pub fn build_ghac_operator(namespace: &str) -> Result<Operator> {
-    let mut builder = Ghac::default().root("/ccache");
-
-    builder = if namespace.is_empty() {
-        builder.version(&format!("sccache-v{VERSION}"))
-    } else {
-        builder.version(&format!("sccache-v{VERSION}-{namespace}"))
-    };
+    let builder = Ghac::default()
+        .root(namespace)
+        .version(&format!("ccache-ghac-adapter-v{VERSION}"));
 
     let op = Operator::new(builder)?
         .layer(HttpClientLayer::new(set_user_agent()))

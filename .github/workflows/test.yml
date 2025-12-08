@@ -46,7 +46,7 @@ jobs:
       - name: Start ccache-ghac-adapter
         uses: JarvusInnovations/background-action@v1
         env:
-          CCACHE_GHAC_NAMESPACE: ${{ runner.os }}-${{ runner.arch }}
+          CCACHE_GHAC_NAMESPACE: ccache-${{ runner.os }}-${{ runner.arch }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           run: cargo run --release -- --port $CCACHE_GHAC_ADAPTER_PORT --namespace $CCACHE_GHAC_NAMESPACE &
