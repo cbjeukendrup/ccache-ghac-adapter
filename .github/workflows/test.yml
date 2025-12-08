@@ -44,11 +44,16 @@ jobs:
         run: |
           cargo build --release
 
+      - name: Archive ccache-ghac-adapter binary
+        run: |
+          cd target/release
+          tar -czf ../../ccache-ghac-adapter-${{ matrix.artifact-suffix }}.tar.gz ccache-ghac-adapter${{ matrix.executable-extension }}
+
       - name: Upload ccache-ghac-adapter artifact
         uses: actions/upload-artifact@v5
         with:
           name: ccache-ghac-adapter-${{ matrix.artifact-suffix }}
-          path: target/release/ccache-ghac-adapter${{ matrix.executable-extension }}
+          path: ccache-ghac-adapter-${{ matrix.artifact-suffix }}.tar.gz
 
   test:
     needs: build
@@ -67,7 +72,7 @@ jobs:
         with:
           name: ccache-ghac-adapter-${{ matrix.artifact-suffix }}
       - run: |
-          chmod +x ./ccache-ghac-adapter${{ matrix.executable-extension }}
+          tar -xzf ccache-ghac-adapter-${{ matrix.artifact-suffix }}.tar.gz
           ./ccache-ghac-adapter${{ matrix.executable-extension }} --version
 
       - name: Prepare environment for ccache-ghac-adapter
