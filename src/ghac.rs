@@ -7,12 +7,8 @@ use opendal::{
 };
 use reqwest::ClientBuilder;
 
-use crate::VERSION;
-
 pub fn build_ghac_operator(namespace: &str) -> Result<Operator> {
-    let builder = Ghac::default()
-        .root(namespace)
-        .version(&format!("ccache-ghac-adapter-v{VERSION}"));
+    let builder = Ghac::default().root(namespace);
 
     let op = Operator::new(builder)?
         .layer(HttpClientLayer::new(set_user_agent()))
