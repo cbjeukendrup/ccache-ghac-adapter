@@ -1,6 +1,8 @@
 name: Test
 
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 
 defaults:
@@ -91,9 +93,10 @@ jobs:
           cmake .. -GNinja -DVALUE=$GITHUB_RUN_ID
           cmake --build .
 
-      - name: Show ccache stats
+      - name: Show ccache stats and zero them
         run: |
           ccache -sv
+          ccache -z
 
       - name: Build again to test cache hit
         run: |
